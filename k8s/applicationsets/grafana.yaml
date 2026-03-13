@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: grafana
+  namespace: argocd
+spec:
+  generators:
+    - matrix:
+        generators:
+          - clusters:
+              selector:
+                matchLabels:
+                  env: '{{path[1]}}'    # matches cluster label to folder name (dev/nonprod/prod)
+          - git:
+              repoURL: https://github.com/your-org/tf-gitops
+              revision: main
+              directories:
+                - path: k8s/rendered/*/*
+  template:
+    metadata:
+      name: '{{name}}-grafana'          # {{name}} comes from the cluster name in ArgoCD
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/your-org/tf-gitops
+        targetRevision: main
+        path: '{{path}}'                # e.g. k8s/rendered/dev/grafana
+        helm:
+          valueFiles:
+            - k8s/values/{{path[1]}}/grafana.yaml
+      destination:
+        server: '{{server}}'
+        namespace: monitoring
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
